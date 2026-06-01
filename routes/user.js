@@ -456,9 +456,14 @@ router.post('/join-copy', async (req, res) => {
   const expertName = req.body.expertName || 'Expert';
   const expertTitle = req.body.expertTitle || '';
   const expertImage = req.body.expertImage || '';
+  const minInvestment = parseFloat(req.body.minInvestment) || 0;
 
   if (isNaN(amount) || amount <= 0) {
     return res.json({ success: false, message: 'Invalid amount' });
+  }
+
+  if (minInvestment > 0 && amount < minInvestment) {
+    return res.json({ success: false, message: `Minimum investment is $${minInvestment.toLocaleString()}` });
   }
 
   const currentBalance = Number(user.balance) || 0;
@@ -466,13 +471,20 @@ router.post('/join-copy', async (req, res) => {
     return res.json({ success: false, message: 'Insufficient balance', redirect: '/user/deposit' });
   }
 
-  // Deduct balance and record copy with rollback on failure to avoid losing funds
   const newBalance = Number((currentBalance - amount).toFixed(2));
   try {
-    const updated = await updateUserBalance(user.id, newBalance);
-    if (!updated) throw new Error('Failed to update balance');
+    const users = await getUsersCollection();
+    const result = await users.findOneAndUpdate(
+      { id: user.id, balance: { $gte: amount } },
+      { $set: { balance: newBalance } },
+      { returnDocument: 'after' }
+    );
+    const updated = result.value;
 
-    // Record copy
+    if (!updated) {
+      return res.status(500).json({ success: false, message: 'Failed to update balance. Please refresh and try again.' });
+    }
+
     const copies = getCopies();
     const copyRecord = {
       id: uuidv4(),
@@ -482,6 +494,7 @@ router.post('/join-copy', async (req, res) => {
       expertName,
       expertTitle,
       expertImage,
+      minInvestment,
       amount,
       status: 'active',
       createdAt: new Date().toISOString()
@@ -495,14 +508,11 @@ router.post('/join-copy', async (req, res) => {
     return res.json({ success: true, message: 'Copying started', newBalance: updated.balance });
   } catch (err) {
     console.error('Join copy error:', err);
-    // Attempt rollback if balance was changed
     try {
       const currentUser = await (await getUsersCollection()).findOne({ id: user.id });
       if (currentUser && Number(currentUser.balance) === newBalance) {
-        // revert
         await updateUserBalance(user.id, Number((newBalance + amount).toFixed(2)));
       }
-      req.session.user.balance = currentBalance;
     } catch (rollbackErr) {
       console.error('Rollback failed:', rollbackErr);
     }
@@ -519,9 +529,14 @@ router.post('/join-plan', async (req, res) => {
   const amount = parseFloat(req.body.amount);
   const planId = req.body.planId || null;
   const planName = req.body.planName || 'Investment Plan';
+  const minInvestment = parseFloat(req.body.minInvestment) || 0;
 
   if (isNaN(amount) || amount <= 0) {
     return res.json({ success: false, message: 'Invalid amount' });
+  }
+
+  if (minInvestment > 0 && amount < minInvestment) {
+    return res.json({ success: false, message: `Minimum investment is $${minInvestment.toLocaleString()}` });
   }
 
   const currentBalance = Number(user.balance) || 0;
@@ -529,30 +544,52 @@ router.post('/join-plan', async (req, res) => {
     return res.json({ success: false, message: 'Insufficient balance', redirect: '/user/deposit' });
   }
 
-  // Deduct balance
   const newBalance = Number((currentBalance - amount).toFixed(2));
-  const updated = await updateUserBalance(user.id, newBalance);
-  if (!updated) return res.status(500).json({ success: false, message: 'Failed to update balance' });
+  try {
+    const users = await getUsersCollection();
+    const result = await users.findOneAndUpdate(
+      { id: user.id, balance: { $gte: amount } },
+      { $set: { balance: newBalance } },
+      { returnDocument: 'after' }
+    );
+    const updated = result.value;
 
-  // Record investment
-  const investments = getInvestments();
-  const investmentRecord = {
-    id: uuidv4(),
-    userId: user.id,
-    userEmail: user.email,
-    planId: planId,
-    planName: planName,
-    amount: amount,
-    status: 'active',
-    createdAt: new Date().toISOString()
-  };
-  investments.push(investmentRecord);
-  saveInvestments(investments);
+    if (!updated) {
+      return res.status(500).json({ success: false, message: 'Failed to update balance. Please refresh and try again.' });
+    }
 
-  sendInvestmentEmail(user.email, user.fullName, planName, amount)
-    .catch((emailErr) => console.error('Investment email error:', emailErr));
+    const investments = getInvestments();
+    const investmentRecord = {
+      id: uuidv4(),
+      userId: user.id,
+      userEmail: user.email,
+      planId: planId,
+      planName: planName,
+      minInvestment,
+      amount: amount,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    investments.push(investmentRecord);
+    saveInvestments(investments);
 
-  return res.json({ success: true, message: 'Investment started', newBalance: updated.balance });
+    sendInvestmentEmail(user.email, user.fullName, planName, amount)
+      .catch((emailErr) => console.error('Investment email error:', emailErr));
+
+    return res.json({ success: true, message: 'Investment started', newBalance: updated.balance });
+  } catch (err) {
+    console.error('Join plan error:', err);
+    try {
+      const currentUser = await (await getUsersCollection()).findOne({ id: user.id });
+      if (currentUser && Number(currentUser.balance) === newBalance) {
+        await updateUserBalance(user.id, Number((newBalance + amount).toFixed(2)));
+      }
+    } catch (rollbackErr) {
+      console.error('Rollback failed:', rollbackErr);
+    }
+
+    return res.status(500).json({ success: false, message: 'Unable to start the investment at this time. Please try again later.' });
+  }
 });
 
 // Submit KYC (AJAX)
