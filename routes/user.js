@@ -5,9 +5,9 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { getCollection } = require('../db');
 
 // Helper functions to read/write JSON files
-const usersPath = path.join(__dirname, '../data/users.json');
 const withdrawalsPath = path.join(__dirname, '../data/withdrawals.json');
 const depositsPath = path.join(__dirname, '../data/deposits.json');
 const investmentsPath = path.join(__dirname, '../data/investments.json');
@@ -15,15 +15,7 @@ const copiesPath = path.join(__dirname, '../data/copies.json');
 const kycPath = path.join(__dirname, '../data/kyc.json');
 const creditsPath = path.join(__dirname, '../data/credits.json');
 
-const getUsers = () => {
-  const data = fs.readFileSync(usersPath, 'utf8');
-  return JSON.parse(data);
-};
-
-const saveUsers = (users) => {
-  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
-};
-
+const getUsersCollection = () => getCollection('users');
 const getWithdrawals = () => {
   const data = fs.readFileSync(withdrawalsPath, 'utf8');
   return JSON.parse(data);
@@ -80,27 +72,28 @@ const getCredits = () => {
 };
 const saveCredits = (list) => { fs.writeFileSync(creditsPath, JSON.stringify(list, null, 2)); };
 
-// Helper function to get current user
-const getCurrentUser = (req) => {
-  const users = getUsers();
-  return users.find(user => user.id === req.session.userId);
-};
+const getCurrentUser = (req) => req.currentUser || null;
 
-// Helper function to update user balance
-const updateUserBalance = (userId, newBalance) => {
-  const users = getUsers();
-  const userIndex = users.findIndex(user => user.id === userId);
-  if (userIndex !== -1) {
-    users[userIndex].balance = newBalance;
-    saveUsers(users);
-    return users[userIndex];
+router.use(async (req, res, next) => {
+  if (req.session.userId) {
+    req.currentUser = await (await getUsersCollection()).findOne({ id: req.session.userId });
   }
-  return null;
+  next();
+});
+
+const updateUserBalance = async (userId, newBalance) => {
+  const users = await getUsersCollection();
+  const result = await users.findOneAndUpdate(
+    { id: userId },
+    { $set: { balance: newBalance } },
+    { returnDocument: 'after' }
+  );
+  return result.value;
 };
 
 // Dashboard route
 router.get('/dashboard', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -112,7 +105,7 @@ router.get('/dashboard', (req, res) => {
 
 // Trade route
 router.get('/trade', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -123,8 +116,8 @@ router.get('/trade', (req, res) => {
 });
 
 // Process trade route
-router.post('/trade', (req, res) => {
-  const user = getCurrentUser(req);
+router.post('/trade', async (req, res) => {
+  const user = req.currentUser;
   
   if (!user) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -144,7 +137,7 @@ router.post('/trade', (req, res) => {
   
   // Update user balance
   const newBalance = user.balance - tradeAmount;
-  const updatedUser = updateUserBalance(user.id, newBalance);
+  const updatedUser = await updateUserBalance(user.id, newBalance);
   
   if (!updatedUser) {
     return res.status(500).json({ error: 'Failed to process trade' });
@@ -158,7 +151,7 @@ router.post('/trade', (req, res) => {
 
 // Deposit route
 router.get('/deposit', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -175,7 +168,7 @@ router.get('/deposit', (req, res) => {
 
 // Submit deposit route
 router.post('/deposit', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -221,7 +214,7 @@ router.post('/deposit', (req, res) => {
 
 // Withdraw route
 router.get('/withdraw', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -238,7 +231,7 @@ router.get('/withdraw', (req, res) => {
 
 // Withdraw POST route
 router.post('/withdraw', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   
   if (!user) {
     req.session.destroy();
@@ -310,7 +303,7 @@ router.post('/withdraw', (req, res) => {
 
 // Additional dashboard pages (placeholders with designed UI)
 const requireUser = (req, res, view, page) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) { req.session.destroy(); return res.redirect('/login'); }
   res.render(view, { user, page });
 };
@@ -335,7 +328,7 @@ router.get('/experts', (req, res) => requireUser(req, res, 'user/experts', 'expe
 
 // Bot trading detail (not in sidebar) -- renders a single bot by id
 router.get('/bot-trading/:id', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) { req.session.destroy(); return res.redirect('/login'); }
 
   const id = req.params.id || '4';
@@ -366,7 +359,7 @@ router.get('/bot-trading/:id', (req, res) => {
 
 // Receive deposit selection from deposit page and respond with redirect URL
 router.post('/payment', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
   // Accept form-data or json
@@ -383,7 +376,7 @@ router.post('/payment', (req, res) => {
 
 // Render payment page showing address/QR for selected currency
 router.get('/payment', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) { req.session.destroy(); return res.redirect('/login'); }
 
   const method = req.query.method || 'USDT';
@@ -409,7 +402,7 @@ router.get('/payment', (req, res) => {
 
 // Submit payment proof (AJAX) -> create deposit request and notify admin via deposits.json
 router.post('/payment/submit', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized', redirect: '/login' });
 
   const amount = parseFloat(req.body.amount);
@@ -439,8 +432,8 @@ router.post('/payment/submit', (req, res) => {
 });
 
 // Join a copy-trading expert (AJAX)
-router.post('/join-copy', (req, res) => {
-  const user = getCurrentUser(req);
+router.post('/join-copy', async (req, res) => {
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized', redirect: '/login' });
 
   const amount = parseFloat(req.body.amount);
@@ -457,7 +450,7 @@ router.post('/join-copy', (req, res) => {
 
   // Deduct balance safely
   const newBalance = Number((user.balance - amount).toFixed(2));
-  const updated = updateUserBalance(user.id, newBalance);
+  const updated = await updateUserBalance(user.id, newBalance);
   if (!updated) return res.status(500).json({ success: false, message: 'Failed to update balance' });
 
   // Record copy
@@ -479,8 +472,8 @@ router.post('/join-copy', (req, res) => {
 });
 
 // Join investment plan (AJAX)
-router.post('/join-plan', (req, res) => {
-  const user = getCurrentUser(req);
+router.post('/join-plan', async (req, res) => {
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized', redirect: '/login' });
 
   const amount = parseFloat(req.body.amount);
@@ -497,7 +490,7 @@ router.post('/join-plan', (req, res) => {
 
   // Deduct balance
   const newBalance = Number((user.balance - amount).toFixed(2));
-  const updated = updateUserBalance(user.id, newBalance);
+  const updated = await updateUserBalance(user.id, newBalance);
   if (!updated) return res.status(500).json({ success: false, message: 'Failed to update balance' });
 
   // Record investment
@@ -520,7 +513,7 @@ router.post('/join-plan', (req, res) => {
 
 // Submit KYC (AJAX)
 router.post('/kyc-submit', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized', redirect: '/login' });
 
   const { fullName, idNumber, country, document } = req.body;
@@ -537,27 +530,25 @@ router.post('/kyc-submit', (req, res) => {
 });
 
 // Update profile
-router.post('/profile/update', (req, res) => {
-  const user = getCurrentUser(req);
+router.post('/profile/update', async (req, res) => {
+  const user = req.currentUser;
   if (!user) { req.session.destroy(); return res.redirect('/login'); }
-
-  const users = getUsers();
-  const idx = users.findIndex(u=>u.id===user.id);
-  if (idx===-1) return res.redirect('/user/profile-settings');
-
   const { fullName, phone, country } = req.body;
-  if (fullName) users[idx].fullName = fullName;
-  if (phone) users[idx].phone = phone;
-  if (country) users[idx].country = country;
-  users[idx].updatedAt = new Date().toISOString();
-  saveUsers(users);
+  const updateFields = {};
+  if (fullName) updateFields.fullName = fullName;
+  if (phone) updateFields.phone = phone;
+  if (country) updateFields.country = country;
+  updateFields.updatedAt = new Date().toISOString();
+
+  const users = await getUsersCollection();
+  await users.updateOne({ id: user.id }, { $set: updateFields });
 
   return res.redirect('/user/profile-settings');
 });
 
 // Apply for credit (AJAX) - not auto-approved; admin will review
 router.post('/apply-credit', (req, res) => {
-  const user = getCurrentUser(req);
+  const user = req.currentUser;
   if (!user) return res.status(401).json({ success: false, message: 'Unauthorized', redirect: '/login' });
 
   const amount = parseFloat(req.body.amount);
