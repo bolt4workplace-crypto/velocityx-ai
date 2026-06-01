@@ -444,31 +444,49 @@ router.post('/join-copy', async (req, res) => {
     return res.json({ success: false, message: 'Invalid amount' });
   }
 
-  if (amount > user.balance) {
+  const currentBalance = Number(user.balance) || 0;
+  if (amount > currentBalance) {
     return res.json({ success: false, message: 'Insufficient balance', redirect: '/user/deposit' });
   }
 
-  // Deduct balance safely
-  const newBalance = Number((user.balance - amount).toFixed(2));
-  const updated = await updateUserBalance(user.id, newBalance);
-  if (!updated) return res.status(500).json({ success: false, message: 'Failed to update balance' });
+  // Deduct balance and record copy with rollback on failure to avoid losing funds
+  const newBalance = Number((currentBalance - amount).toFixed(2));
+  try {
+    const updated = await updateUserBalance(user.id, newBalance);
+    if (!updated) throw new Error('Failed to update balance');
 
-  // Record copy
-  const copies = getCopies();
-  const copyRecord = {
-    id: uuidv4(),
-    userId: user.id,
-    userEmail: user.email,
-    expertId,
-    expertName,
-    amount,
-    status: 'active',
-    createdAt: new Date().toISOString()
-  };
-  copies.push(copyRecord);
-  saveCopies(copies);
+    // Record copy
+    const copies = getCopies();
+    const copyRecord = {
+      id: uuidv4(),
+      userId: user.id,
+      userEmail: user.email,
+      expertId,
+      expertName,
+      amount,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+    copies.push(copyRecord);
+    saveCopies(copies);
 
-  return res.json({ success: true, message: 'Copying started', newBalance: updated.balance });
+    return res.json({ success: true, message: 'Copying started', newBalance: updated.balance });
+  } catch (err) {
+    console.error('Join copy error:', err);
+    // Attempt rollback if balance was changed
+    try {
+      const currentUser = await (await getUsersCollection()).findOne({ id: user.id });
+      if (currentUser && Number(currentUser.balance) === newBalance) {
+        // revert
+        await updateUserBalance(user.id, Number((newBalance + amount).toFixed(2)));
+      }
+      req.session.user.balance = currentBalance;
+    } catch (rollbackErr) {
+      console.error('Rollback failed:', rollbackErr);
+    }
+
+    return res.status(500).json({ success: false, message: 'Unable to copy at this time. Please try again later.' });
+  }
 });
 
 // Join investment plan (AJAX)
@@ -484,12 +502,13 @@ router.post('/join-plan', async (req, res) => {
     return res.json({ success: false, message: 'Invalid amount' });
   }
 
-  if (amount > user.balance) {
+  const currentBalance = Number(user.balance) || 0;
+  if (amount > currentBalance) {
     return res.json({ success: false, message: 'Insufficient balance', redirect: '/user/deposit' });
   }
 
   // Deduct balance
-  const newBalance = Number((user.balance - amount).toFixed(2));
+  const newBalance = Number((currentBalance - amount).toFixed(2));
   const updated = await updateUserBalance(user.id, newBalance);
   if (!updated) return res.status(500).json({ success: false, message: 'Failed to update balance' });
 
