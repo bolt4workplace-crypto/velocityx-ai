@@ -3,20 +3,11 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const { getCollection } = require('../db');
 
-// Helper functions to read/write JSON files
-const usersPath = path.join(__dirname, '../data/users.json');
+const getUsersCollection = () => getCollection('users');
 const withdrawalsPath = path.join(__dirname, '../data/withdrawals.json');
 const depositsPath = path.join(__dirname, '../data/deposits.json');
-
-const getUsers = () => {
-  const data = fs.readFileSync(usersPath, 'utf8');
-  return JSON.parse(data);
-};
-
-const saveUsers = (users) => {
-  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
-};
 
 const getWithdrawals = () => {
   const data = fs.readFileSync(withdrawalsPath, 'utf8');
@@ -55,8 +46,8 @@ const checkAdmin = (req, res, next) => {
 };
 
 // Admin dashboard route
-router.get('/dashboard', checkAdmin, (req, res) => {
-  const users = getUsers();
+router.get('/dashboard', checkAdmin, async (req, res) => {
+  const users = await (await getUsersCollection()).find({}).toArray();
   const withdrawals = getWithdrawals();
   const deposits = getDeposits();
   const kyc = getKyc();
@@ -69,7 +60,7 @@ router.get('/dashboard', checkAdmin, (req, res) => {
   if (query) {
     filteredUsers = users.filter(user => 
       user.id.toLowerCase().includes(query.toLowerCase()) || 
-      user.fullName.toLowerCase().includes(query.toLowerCase())
+      (user.fullName && user.fullName.toLowerCase().includes(query.toLowerCase()))
     );
   }
   
@@ -86,8 +77,7 @@ router.get('/dashboard', checkAdmin, (req, res) => {
 });
 
 // Update user balance route
-router.post('/user/:id/update-balance', checkAdmin, (req, res) => {
-  const users = getUsers();
+router.post('/user/:id/update-balance', checkAdmin, async (req, res) => {
   const userId = req.params.id;
   const newBalance = parseFloat(req.body.balance);
   
@@ -95,13 +85,10 @@ router.post('/user/:id/update-balance', checkAdmin, (req, res) => {
   if (isNaN(newBalance) || newBalance < 0) {
     return res.redirect('/admin/dashboard?success=false');
   }
-  
-  // Find and update user
-  const userIndex = users.findIndex(user => user.id === userId);
-  
-  if (userIndex !== -1) {
-    users[userIndex].balance = newBalance;
-    saveUsers(users);
+
+  const users = await getUsersCollection();
+  const result = await users.updateOne({ id: userId }, { $set: { balance: newBalance } });
+  if (result.matchedCount > 0) {
     return res.redirect('/admin/dashboard?success=true');
   }
   
@@ -109,16 +96,13 @@ router.post('/user/:id/update-balance', checkAdmin, (req, res) => {
 });
 
 // Toggle user trading status
-router.post('/user/:id/toggle-trading', checkAdmin, (req, res) => {
-  const users = getUsers();
+router.post('/user/:id/toggle-trading', checkAdmin, async (req, res) => {
   const userId = req.params.id;
   const action = req.body.action;
   
-  const userIndex = users.findIndex(user => user.id === userId);
-  
-  if (userIndex !== -1) {
-    users[userIndex].canTrade = action === 'approve';
-    saveUsers(users);
+  const users = await getUsersCollection();
+  const result = await users.updateOne({ id: userId }, { $set: { canTrade: action === 'approve' } });
+  if (result.matchedCount > 0) {
     return res.redirect('/admin/dashboard?success=true');
   }
   
@@ -126,7 +110,7 @@ router.post('/user/:id/toggle-trading', checkAdmin, (req, res) => {
 });
 
 // Handle withdrawal approval/rejection
-router.post('/withdrawal/:id/:action', checkAdmin, (req, res) => {
+router.post('/withdrawal/:id/:action', checkAdmin, async (req, res) => {
   const withdrawals = getWithdrawals();
   const withdrawalId = req.params.id;
   const action = req.params.action;
@@ -136,14 +120,10 @@ router.post('/withdrawal/:id/:action', checkAdmin, (req, res) => {
   if (withdrawalIndex !== -1) {
     withdrawals[withdrawalIndex].status = action === 'approve' ? 'approved' : 'rejected';
     
-    // If approved, deduct from user's balance
     if (action === 'approve') {
-      const users = getUsers();
-      const userIndex = users.findIndex(u => u.id === withdrawals[withdrawalIndex].userId);
-      if (userIndex !== -1) {
-        users[userIndex].balance -= withdrawals[withdrawalIndex].amount;
-        saveUsers(users);
-      }
+      const users = await getUsersCollection();
+      const withdrawal = withdrawals[withdrawalIndex];
+      await users.updateOne({ id: withdrawal.userId }, { $inc: { balance: -withdrawal.amount } });
     }
     
     saveWithdrawals(withdrawals);
@@ -154,7 +134,7 @@ router.post('/withdrawal/:id/:action', checkAdmin, (req, res) => {
 });
 
 // Handle deposit approval/rejection
-router.post('/deposit/:id/:action', checkAdmin, (req, res) => {
+router.post('/deposit/:id/:action', checkAdmin, async (req, res) => {
   const deposits = getDeposits();
   const depositId = req.params.id;
   const action = req.params.action;
@@ -164,14 +144,10 @@ router.post('/deposit/:id/:action', checkAdmin, (req, res) => {
   if (depositIndex !== -1) {
     deposits[depositIndex].status = action === 'approve' ? 'approved' : 'rejected';
     
-    // If approved, update user balance
     if (action === 'approve') {
-      const users = getUsers();
-      const userIndex = users.findIndex(u => u.id === deposits[depositIndex].userId);
-      if (userIndex !== -1) {
-        users[userIndex].balance += deposits[depositIndex].amount;
-        saveUsers(users);
-      }
+      const users = await getUsersCollection();
+      const deposit = deposits[depositIndex];
+      await users.updateOne({ id: deposit.userId }, { $inc: { balance: deposit.amount } });
     }
     
     saveDeposits(deposits);
@@ -182,7 +158,7 @@ router.post('/deposit/:id/:action', checkAdmin, (req, res) => {
 });
 
 // KYC approval/rejection
-router.post('/kyc/:id/:action', checkAdmin, (req, res) => {
+router.post('/kyc/:id/:action', checkAdmin, async (req, res) => {
   const kycList = getKyc();
   const kycId = req.params.id;
   const action = req.params.action;
@@ -190,11 +166,9 @@ router.post('/kyc/:id/:action', checkAdmin, (req, res) => {
   if (idx !== -1) {
     kycList[idx].status = action === 'approve' ? 'approved' : 'rejected';
     saveKyc(kycList);
-    // optionally toggle user's canTrade when approved
     if (action === 'approve') {
-      const users = getUsers();
-      const uidx = users.findIndex(u => u.id === kycList[idx].userId);
-      if (uidx !== -1) { users[uidx].canTrade = true; saveUsers(users); }
+      const users = await getUsersCollection();
+      await users.updateOne({ id: kycList[idx].userId }, { $set: { canTrade: true } });
     }
     return res.redirect('/admin/dashboard?view=kyc&success=true');
   }
@@ -202,18 +176,19 @@ router.post('/kyc/:id/:action', checkAdmin, (req, res) => {
 });
 
 // Credit approval/rejection
-router.post('/credit/:id/:action', checkAdmin, (req, res) => {
+router.post('/credit/:id/:action', checkAdmin, async (req, res) => {
   const credits = getCredits();
   const creditId = req.params.id;
   const action = req.params.action;
   const idx = credits.findIndex(c => c.id === creditId);
   if (idx !== -1) {
     credits[idx].status = action === 'approve' ? 'approved' : 'rejected';
-    // if approved, add amount to user balance
     if (action === 'approve') {
-      const users = getUsers();
-      const uidx = users.findIndex(u => u.id === credits[idx].userId);
-      if (uidx !== -1) { users[uidx].balance = (users[uidx].balance || 0) + (credits[idx].amount || 0); saveUsers(users); }
+      const users = await getUsersCollection();
+      await users.updateOne(
+        { id: credits[idx].userId },
+        { $inc: { balance: credits[idx].amount || 0 } }
+      );
     }
     saveCredits(credits);
     return res.redirect('/admin/dashboard?view=credits&success=true');
