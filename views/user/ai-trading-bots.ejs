@@ -465,7 +465,6 @@ body::before {
     <div class="atb_container">
       <div class="atb_filters">
         <button class="atb_filter_btn atb_filter_active" data-filter="all">All Bots</button>
-        <button class="atb_filter_btn" data-filter="forex">Forex</button>
         <button class="atb_filter_btn" data-filter="crypto">Crypto</button>
         <button class="atb_filter_btn" data-filter="stocks">Stocks</button>
         <button class="atb_filter_btn" data-filter="commodities">Commodities</button>
@@ -481,54 +480,54 @@ body::before {
   <script>
     const botsData = [
   {
-    name: "ForexMaster Pro",
-    category: "forex",
+    name: "EquityMaster Pro",
+    category: "stocks",
     success: "87%",
-    description: "Advanced forex trading bot specializing in major currency pairs. Uses sophisticated algorithms to analyze market trends...",
+    description: "Advanced stock trading bot specializing in large-cap equities. Uses sophisticated algorithms to analyze market trends...",
     profitRange: "0.80% - 2.50%",
-    duration: "30 Days",
+    strategy: "Momentum Stocks",
     minInvest: "$100",
     maxInvest: "$10,000",
-    pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "+1 more"],
+    pairs: ["AAPL", "GOOGL", "MSFT", "AMZN", "+1 more"],
     activeUsers: "1",
     earned: "$137"
   },
   {
-    name: "ScalpMaster Quick",
-    category: "forex",
+    name: "MomentumMaster Quick",
+    category: "stocks",
     success: "79%",
-    description: "High-frequency scalping bot designed for quick profits from small price movements. Perfect for active traders seeking mu...",
+    description: "High-frequency equities bot designed for quick profits from small price movements in the strongest stock names...",
     profitRange: "1.50% - 3.50%",
-    duration: "21 Days",
+    strategy: "Short Term Stocks",
     minInvest: "$150",
     maxInvest: "$5,000",
-    pairs: ["EUR/USD", "GBP/JPY", "USD/CAD", "AUD/NZD"],
+    pairs: ["AAPL", "NVDA", "TSLA", "AMD"],
     activeUsers: "0",
     earned: "$23"
   },
   {
-    name: "Forex Precision Elite",
-    category: "forex",
+    name: "Equity Precision Elite",
+    category: "stocks",
     success: "93%",
-    description: "Premium forex trading bot utilizing advanced neural networks and sentiment analysis. Designed for institutional-grade pr...",
+    description: "Premium stock trading bot utilizing advanced neural networks and sentiment analysis for blue-chip equities...",
     profitRange: "1.50% - 4.10%",
-    duration: "90 Days",
+    strategy: "Long Term Stocks",
     minInvest: "$750",
     maxInvest: "$50,000",
-    pairs: ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "+2 more"],
+    pairs: ["AAPL", "GOOGL", "MSFT", "AMZN", "+2 more"],
     activeUsers: "0",
     earned: "$0"
   },
   {
-    name: "A.I Sentiment Trader",
-    category: "forex",
+    name: "Sentiment Stocks AI",
+    category: "stocks",
     success: "86%",
-    description: "Revolutionary sentiment-based trading bot that analyzes social media, news, and market sentiment across multiple asset c...",
+    description: "Revolutionary sentiment-based trading bot that analyzes news, analyst notes, and market sentiment across major stocks...",
     profitRange: "1.90% - 2.08%",
-    duration: "14 Days",
+    strategy: "Sentiment Analysis",
     minInvest: "$12,000",
     maxInvest: "$35,000",
-    pairs: ["BTC/USD", "ETH/USD", "AAPL", "TSLA", "+1 more"],
+    pairs: ["AAPL", "TSLA", "NFLX", "NVDA", "+1 more"],
     activeUsers: "0",
     earned: "$0"
   },
@@ -536,8 +535,9 @@ body::before {
     name: "CryptoGain Elite",
     category: "crypto",
     success: "82%",
-    description: "High-performance cryptocurrency trading bot designed for the volatile crypto markets. Leverages machine learning to iden...",
+    description: "High-performance cryptocurrency trading bot designed for the volatile crypto markets. Leverages machine learning to identify momentum and risk-managed entries...",
     profitRange: "1.20% - 4.50%",
+    strategy: "Crypto Growth",
     duration: "45 Days",
     minInvest: "$250",
     maxInvest: "$25,000",
@@ -549,8 +549,9 @@ body::before {
     name: "AlgoTrader Supreme",
     category: "crypto",
     success: "91%",
-    description: "Next-generation algorithmic trading bot powered by quantum computing principles. Specializes in high-frequency crypto ar...",
+    description: "Next-generation algorithmic trading bot powered by quantum computing principles. Specializes in high-frequency crypto arbitrage and trend capture...",
     profitRange: "2.10% - 6.80%",
+    strategy: "High Frequency Crypto",
     duration: "45 Days",
     minInvest: "$500",
     maxInvest: "$100,000",
@@ -562,8 +563,9 @@ body::before {
     name: "DeFi Yield Hunter",
     category: "crypto",
     success: "88%",
-    description: "Specialized DeFi protocol explorer that identifies the most profitable yield farming opportunities across decentralized...",
+    description: "Specialized DeFi protocol explorer that identifies the most profitable yield farming opportunities across decentralized finance networks...",
     profitRange: "1.80% - 5.20%",
+    strategy: "DeFi Income",
     duration: "60 Days",
     minInvest: "$1,000",
     maxInvest: "$75,000",
@@ -575,8 +577,9 @@ body::before {
     name: "StockTrader AI",
     category: "stocks",
     success: "89%",
-    description: "Intelligent stock trading bot focusing on blue-chip stocks and growth companies. Combines fundamental analysis with tech...",
+    description: "Intelligent stock trading bot focusing on blue-chip stocks and growth companies. Combines fundamental analysis with trend momentum data...",
     profitRange: "0.50% - 2.00%",
+    strategy: "Blue Chip Stocks",
     duration: "60 Days",
     minInvest: "$500",
     maxInvest: "$50,000",
@@ -588,8 +591,9 @@ body::before {
     name: "Stock Momentum Master",
     category: "stocks",
     success: "89%",
-    description: "Advanced momentum trading bot that identifies breakout patterns and trending stocks. Focuses on high-volume stocks with...",
+    description: "Advanced momentum trading bot that identifies breakout patterns and trending stocks. Focuses on high-volume names and liquidity...",
     profitRange: "1.20% - 3.80%",
+    strategy: "Momentum Stocks",
     duration: "120 Days",
     minInvest: "$1,500",
     maxInvest: "$80,000",
@@ -601,8 +605,9 @@ body::before {
     name: "GoldRush Bot",
     category: "commodities",
     success: "84%",
-    description: "Specialized commodities trading bot with expertise in precious metals and energy markets. Ideal for portfolio diversific...",
+    description: "Specialized commodities trading bot with expertise in precious metals and energy markets. Ideal for portfolio diversification and risk-managed exposure...",
     profitRange: "0.70% - 2.80%",
+    strategy: "Precious Metals",
     duration: "90 Days",
     minInvest: "$200",
     maxInvest: "$15,000",
@@ -614,8 +619,9 @@ body::before {
     name: "Commodity Weather AI",
     category: "commodities",
     success: "87%",
-    description: "Intelligent commodity trading bot that incorporates weather data, supply chain analysis, and seasonal patterns for agric...",
+    description: "Intelligent commodity trading bot that incorporates weather data, supply chain analysis, and seasonal patterns for agricultural and energy products...",
     profitRange: "1.30% - 4.50%",
+    strategy: "Weather-Linked Commodities",
     duration: "180 Days",
     minInvest: "$800",
     maxInvest: "$40,000",
@@ -627,8 +633,9 @@ body::before {
     name: "Energy Futures Pro",
     category: "commodities",
     success: "83%",
-    description: "Professional energy trading bot focused on oil, gas, and renewable energy futures. Uses geopolitical analysis and supply...",
+    description: "Professional energy trading bot focused on oil, gas, and renewable energy futures. Uses geopolitical analysis and supply-demand modeling...",
     profitRange: "1.70% - 5.10%",
+    strategy: "Energy Futures",
     duration: "90 Days",
     minInvest: "$1,200",
     maxInvest: "$70,000",
@@ -665,8 +672,8 @@ function createBotCard(bot) {
           <span class="atb_metric_value">${bot.profitRange}</span>
         </div>
         <div class="atb_metric">
-          <span class="atb_metric_label">Duration</span>
-          <span class="atb_metric_value">${bot.duration}</span>
+          <span class="atb_metric_label">Strategy</span>
+          <span class="atb_metric_value">${bot.strategy || bot.duration}</span>
         </div>
       </div>
 
