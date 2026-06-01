@@ -6,7 +6,12 @@ const mailHost = process.env.MAIL_HOST || process.env.SMTP_HOST || (mailService 
 const mailPort = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 465);
 const mailUser = process.env.MAIL_USER || process.env.SMTP_USER;
 const mailPass = process.env.MAIL_PASS || process.env.SMTP_PASS;
-const mailFrom = (process.env.MAIL_FROM || 'no-reply@veloxicity.com').trim().replace(/^"(.+)"$/, '$1');
+let mailFrom = process.env.MAIL_FROM || 'no-reply@veloxicity.com';
+mailFrom = mailFrom
+  .replace(/\r?\n/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+  .replace(/^"(.+)"$/, '$1');
 
 const transporterOptions = mailService
   ? {
@@ -28,19 +33,22 @@ const sendMail = async (to, subject, html) => {
     return;
   }
 
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
   await transporter.sendMail({
     from: mailFrom,
     to,
     subject,
+    text,
     html,
   });
 };
 
 const sendLoginEmail = async (email, fullName) => {
-  const subject = 'Login Notification';
+  const subject = 'Welcome back to Veloxicity';
   const html = `
     <p>Hi ${fullName},</p>
-    <p>You have successfully signed in to your Veloxicity account.</p>
+    <p>Welcome back! You have successfully signed in to your Veloxicity account.</p>
     <p>If this was not you, please contact support immediately.</p>
     <p>Thanks,<br/>Veloxicity Team</p>
   `;
@@ -48,33 +56,25 @@ const sendLoginEmail = async (email, fullName) => {
 };
 
 const sendCopyTradeEmail = async (email, fullName, expertName, amount) => {
-  const subject = 'Copy Trading Started';
+  const subject = 'Your copy trade has started';
   const html = `
     <p>Hi ${fullName},</p>
-    <p>Your copy trade has started successfully.</p>
+    <p>Your copy trade is now active.</p>
     <p><strong>Expert:</strong> ${expertName}</p>
     <p><strong>Amount:</strong> $${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-    <p>You can monitor this trade on your dashboard.</p>
+    <p>The trade has started and is visible on your dashboard.</p>
     <p>Thanks,<br/>Veloxicity Team</p>
   `;
   return sendMail(email, subject, html);
 };
 
 const sendInvestmentEmail = async (email, fullName, planName, amount) => {
-  const subject = 'Investment Started';
+  const subject = 'Your investment has started';
   const html = `
     <p>Hi ${fullName},</p>
-    <p>Your investment has started successfully.</p>
+    <p>Your bot investment is now active.</p>
     <p><strong>Plan:</strong> ${planName}</p>
     <p><strong>Amount:</strong> $${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-    <p>You can monitor the position on your dashboard.</p>
+    <p>The investment has started and is visible on your dashboard.</p>
     <p>Thanks,<br/>Veloxicity Team</p>
   `;
-  return sendMail(email, subject, html);
-};
-
-module.exports = {
-  sendLoginEmail,
-  sendCopyTradeEmail,
-  sendInvestmentEmail,
-};
