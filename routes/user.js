@@ -454,6 +454,8 @@ router.post('/join-copy', async (req, res) => {
   const amount = parseFloat(req.body.amount);
   const expertId = req.body.expertId || null;
   const expertName = req.body.expertName || 'Expert';
+  const expertTitle = req.body.expertTitle || '';
+  const expertImage = req.body.expertImage || '';
 
   if (isNaN(amount) || amount <= 0) {
     return res.json({ success: false, message: 'Invalid amount' });
@@ -478,6 +480,8 @@ router.post('/join-copy', async (req, res) => {
       userEmail: user.email,
       expertId,
       expertName,
+      expertTitle,
+      expertImage,
       amount,
       status: 'active',
       createdAt: new Date().toISOString()
@@ -600,7 +604,3 @@ router.post('/apply-credit', (req, res) => {
   credits.push(reqRecord);
   saveCredits(credits);
 
-  return res.json({ success: true, message: 'Credit request submitted' });
-});
-
-module.exports = router;
