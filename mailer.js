@@ -1,22 +1,30 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-const mailHost = process.env.MAIL_HOST || process.env.SMTP_HOST;
-const mailPort = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 587);
+const mailService = process.env.MAIL_SERVICE || process.env.SMTP_SERVICE;
+const mailHost = process.env.MAIL_HOST || process.env.SMTP_HOST || (mailService ? undefined : 'smtp.gmail.com');
+const mailPort = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 465);
 const mailUser = process.env.MAIL_USER || process.env.SMTP_USER;
 const mailPass = process.env.MAIL_PASS || process.env.SMTP_PASS;
 const mailFrom = process.env.MAIL_FROM || 'no-reply@veloxicity.com';
 
-const transporter = nodemailer.createTransport({
-  host: mailHost,
-  port: mailPort,
-  secure: mailPort === 465,
-  auth: mailUser && mailPass ? { user: mailUser, pass: mailPass } : undefined,
-});
+const transporterOptions = mailService
+  ? {
+      service: mailService,
+      auth: { user: mailUser, pass: mailPass }
+    }
+  : {
+      host: mailHost,
+      port: mailPort,
+      secure: mailPort === 465,
+      auth: mailUser && mailPass ? { user: mailUser, pass: mailPass } : undefined
+    };
+
+const transporter = nodemailer.createTransport(transporterOptions);
 
 const sendMail = async (to, subject, html) => {
-  if (!mailHost || !mailPort || !mailUser || !mailPass) {
-    console.warn('Mailer not configured: missing MAIL_HOST, MAIL_PORT, MAIL_USER or MAIL_PASS. Skipping email.');
+  if (!mailUser || !mailPass) {
+    console.warn('Mailer not configured: missing MAIL_USER or MAIL_PASS. Skipping email.');
     return;
   }
 
