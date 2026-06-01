@@ -544,7 +544,7 @@
     <%- include('../partials/user-nav.ejs', { user, page: '' }) %>
     <main class="dashboard-content vx_bot_page">
       <div class="vx_bot_container">
-        <a class="vx_back" href="/user/ai-trading-bots">← Back to Bots</a>
+        <a class="vx_back" href="/user/ai-trading-bots">Back to Bots</a>
 
         <div class="vx_header_section">
           <div class="vx_bot_head">
@@ -558,11 +558,9 @@
                   Status: <strong><%= bot.status %></strong>
                 </div>
                 <div class="vx_chip">
-                  <i data-lucide="trending-up"></i>
                   Performance: <strong><%= bot.performance %>%</strong>
                 </div>
                 <div class="vx_chip">
-                  <i data-lucide="check-circle"></i>
                   Success Rate: <strong><%= bot.successRate %></strong>
                 </div>
               </div>
@@ -593,21 +591,18 @@
 
             <div class="vx_strategy_section">
               <h3 class="vx_section_title">
-                <i data-lucide="settings" class="vx_section_icon"></i>
                 Trading Strategy
               </h3>
 
               <div class="vx_strategy_grid">
                 <div class="vx_strategy_card">
                   <div class="vx_strategy_card_label">
-                    <i data-lucide="target" style="width: 16px; height: 16px;"></i>
                     Strategy Type
                   </div>
                   <div class="vx_strategy_card_value"><%= bot.strategyType %></div>
                 </div>
                 <div class="vx_strategy_card">
                   <div class="vx_strategy_card_label">
-                    <i data-lucide="repeat" style="width: 16px; height: 16px;"></i>
                     Trading Frequency
                   </div>
                   <div class="vx_strategy_card_value"><%= bot.tradingFrequency %></div>
@@ -616,7 +611,6 @@
 
               <div class="vx_description_box">
                 <div class="vx_description_title">
-                  <i data-lucide="file-text" style="width: 16px; height: 16px;"></i="file-text" style="width: 16px; height: 16px;"></i>
                   Description
                 </div>
                 <div class="vx_description_text"><%= bot.description %></div>
@@ -625,7 +619,6 @@
 
             <div class="vx_strategy_section">
               <h3 class="vx_section_title">
-                <span class="vx_section_icon">⚠️</span>
                 Risk Information
               </h3>
               <div class="vx_description_text">
@@ -683,7 +676,6 @@
 
               <div class="vx_risk_section">
                 <div class="vx_risk_title">
-                  <span>⚠️</span>
                   Risk Warning
                 </div>
                 <div class="vx_risk_text">
@@ -724,7 +716,12 @@
         fetch('/user/join-plan', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ amount, planId: 'bot-<%= bot.id %>', planName: '<%= bot.name %>' })
+          body: JSON.stringify({
+            amount,
+            minInvestment: <%= bot.minInvestment %>,
+            planId: 'bot-<%= bot.id %>',
+            planName: '<%= bot.name %>'
+          })
         })
           .then(async (r) => {
             const data = await r.json().catch(() => null);
@@ -734,8 +731,8 @@
               return;
             }
 
-            showToast('success', 'Investment Started', 'Trading has started successfully.');
-            setTimeout(() => window.location.href = '/user/dashboard', 1200);
+            showToast('success', 'Trading Started', 'Your bot investment has started successfully.');
+            setTimeout(() => window.location.href = data.redirect || '/user/dashboard', 1200);
           })
           .catch(function(e) {
             console.error(e);
