@@ -1016,7 +1016,8 @@
 
           const title = card.querySelector('.vx_expert_title').textContent.trim();
           const image = card.querySelector('.vx_expert_image').src;
-          pending = { expertId, name, amount, title, image };
+          const minInvestment = Number(card.querySelector('.vx_join_input').getAttribute('min')) || 0;
+          pending = { expertId, name, amount, title, image, minInvestment };
           confirmTitle.textContent = 'Copy ' + name;
           confirmBody.innerHTML = 'Start copying <strong>' + name + '</strong> with <strong>$' + amount.toLocaleString() + '</strong>?';
           confirmModal.classList.add('show');
@@ -1039,6 +1040,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amount: pending.amount,
+            minInvestment: pending.minInvestment,
             expertId: pending.expertId,
             expertName: pending.name,
             expertTitle: pending.title,
