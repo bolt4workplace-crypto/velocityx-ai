@@ -1061,8 +1061,8 @@
               return;
             }
 
-            showToast('success', 'Copy Started', 'You are now copying ' + pending.name + ' with $' + pending.amount.toLocaleString());
-            setTimeout(() => window.location.href = '/user/dashboard', 1200);
+            showToast('success', 'Trading Started', 'You are now copying ' + pending.name + ' with $' + pending.amount.toLocaleString() + '.');
+            setTimeout(() => window.location.href = data.redirect || '/user/dashboard', 1200);
           })
           .catch(function(err) {
             console.error(err);
